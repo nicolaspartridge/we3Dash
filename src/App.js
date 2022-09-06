@@ -5,6 +5,7 @@ import './cf.css'
 import Lottie from 'react-lottie';
 import loadingAnimation from './assets/loading.json';
 import {getBAYC} from './hooks/bayc/getBayc'
+import {getNFT} from './hooks/test'
 
 function App() {
   const [account, setAccount] = useState()
@@ -55,6 +56,17 @@ function App() {
     )
   }
 
+  const callNFT = async (acc) => {
+    setSearching(true)
+    return new Promise(async function(resolve, reject) {
+      const links = await getNFT(provider, acc)
+      resolve(links)
+      console.log(apes, links)
+      setSearching(false)
+      }
+    )
+  }
+
   const connectMetamask = async () => {
     await provider.send("eth_requestAccounts", [])
 
@@ -65,10 +77,15 @@ function App() {
     setConnected(true)
     getNetwork()
     getBalance()
-    setUsdt(await getERC20Bal(contractAddresses[0].addr, acc))
-    setUsdc(await  getERC20Bal(contractAddresses[1].addr, acc))
-    setDai(await  getERC20Bal(contractAddresses[2].addr, acc))
-    await callApe(acc)
+    
+    if (provider.network.chainId === 1) {
+      await callApe(acc)
+      setUsdt(await getERC20Bal(contractAddresses[0].addr, acc))
+      setUsdc(await  getERC20Bal(contractAddresses[1].addr, acc))
+      setDai(await  getERC20Bal(contractAddresses[2].addr, acc))
+    } else if (provider.network.chainId === 4) {
+      await callNFT(acc)
+    }
     setSearching(false)
     setLoading(false)
   }
@@ -76,15 +93,15 @@ function App() {
   const getBalance = async () => {
     signer = provider.getSigner()
     const bal = await signer.getBalance()
-    const convertToEth = 1e18
-    setBalance(bal.toString() / convertToEth)
+    const readableBal = (ethers.BigNumber.from(bal._hex) / 1e18)
+    setBalance(readableBal.toLocaleString('fullwide', {useGrouping:false}))
   }
 
   const getERC20Bal = async (addr, acc) => {
     const contract = new ethers.Contract(addr, ERC20ABI, provider)
     const bal = await contract.balanceOf(acc)
     const readableBal = (ethers.BigNumber.from(bal._hex).toNumber() / 10** await contract.decimals())
-    return (readableBal)
+    return (readableBal.toLocaleString('fullwide', {useGrouping:false}))
   }
 
   const getNetwork = async () => {
@@ -92,7 +109,9 @@ function App() {
   }
 
   useEffect(() => {
-    callApe(searchVal)
+    if (network === "Ethereum Mainnet") {
+        callApe(searchVal).then(setApes)
+      }
   },[apes])
 
   return (
@@ -133,20 +152,32 @@ function App() {
               <div className='w-full border border-accent rounded-lg pt-4 md:p-8 md:ml-2'>
                   <span className='text-secondary text-xs'><i className="cfu-wallet mr-2"></i>WALLET DETAILS</span>
 
-                  <div className='flex flex-row items-center mt-4 text-offWhite'>
-                    <i className="cf cf-usdt md:text-2xl font-[cryptofont]"></i>
-                    <span className='text-xs md:text-sm ml-2'>{usdt} USDT</span>
-                  </div>
+                  {
+                    (network === "Ethereum Mainnet") ? (
+                      <>
+                      <div className='flex flex-row items-center mt-4 text-offWhite'>
+                        <i className="cf cf-usdt md:text-2xl font-[cryptofont]"></i>
+                        <span className='text-xs md:text-sm ml-2'>{usdt} USDT</span>
+                      </div>
 
-                  <div className='flex flex-row items-center mt-4 text-offWhite'>
-                    <i className="cf cf-usdc md:text-2xl font-[cryptofont]"></i>
-                    <span className='text-xs md:text-sm ml-2'>{usdc} USDC</span>
-                  </div>
+                      <div className='flex flex-row items-center mt-4 text-offWhite'>
+                        <i className="cf cf-usdc md:text-2xl font-[cryptofont]"></i>
+                        <span className='text-xs md:text-sm ml-2'>{usdc} USDC</span>
+                      </div>
 
-                  <div className='flex flex-row items-center mt-4 text-offWhite'>
-                    <i className="cf cf-dai md:text-2xl font-[cryptofont]"></i>
-                    <span className='text-xs md:text-sm ml-2'>{dai} DAI</span>
-                  </div>
+                      <div className='flex flex-row items-center mt-4 text-offWhite'>
+                        <i className="cf cf-dai md:text-2xl font-[cryptofont]"></i>
+                        <span className='text-xs md:text-sm ml-2'>{dai} DAI</span>
+                      </div>
+                      </>
+                    ) :
+                    (
+                      <div className='flex items-center justify-center w-full h-full'>
+                        <span className='text-secondary text-xs'>ERC20 balances only available on Mainnet.</span>
+                      </div>
+                    )
+                  }
+                  
               </div>
               </div>
 
@@ -169,9 +200,17 @@ function App() {
                             setSearchVal(e.target.value)
                           }}
                         />
-                        <button onClick={async () => {
+                        <button onClick={
+                          network === "Ethereum Mainnet" ?
+
+                          async () => {
                             callApe(searchVal).then(setApes)
                           }
+                          :
+                          async () => {
+                            callNFT(searchVal).then(setApes)
+                          }
+
                           }>Search</button>
                       </div> )
                       :

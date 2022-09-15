@@ -94,7 +94,9 @@ function App() {
   };
 
   useEffect(() => {
-    callApe(searchVal).then(setApes);
+    if (searchVal.length === 42) {
+      callApe(searchVal).then(setApes);
+    }
   }, [searchVal]);
 
   return (
